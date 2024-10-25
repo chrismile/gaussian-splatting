@@ -23,6 +23,7 @@ from gaussian_renderer import GaussianModel
 from upscaling.upscaler_dlss import UpscalerDLSS
 from upscaling.upscaler_pytorch import UpscalerPyTorch
 from upscaling.upscaler_model import UpscalerModel
+from upscaling.upscaler_cv2 import UpscalerOpenCV
 
 
 def render_set(model_path, name, iteration, views, gaussians, pipeline, background, train_test_exp):
@@ -37,9 +38,18 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
     makedirs(gts_path, exist_ok=True)
 
     sf = 2
+
     #upscaler = None
     #upscaler = UpscalerDLSS(ss_factor=sf)
-    upscaler = UpscalerPyTorch(ss_factor=sf)
+    #upscaler = UpscalerPyTorch(ss_factor=sf)
+
+    #algo_name = 'EDSR'
+    #algo_name = 'ESPCN'
+    #algo_name = 'FSRCNN'
+    algo_name = 'LapSRN'
+    upscaler = UpscalerOpenCV(
+        ss_factor=sf, algo_name=algo_name, model_path=f'/mnt/data/DL/img_upscale_models/x{sf}/{algo_name}_x{sf}.pb')
+
     #upscaler_model = torch.load(os.path.join(model_path, "upscaling", "espcn_1024.pt"))
     #upscaler_model.eval()
     #upscaler = UpscalerModel(ss_factor=sf, model=upscaler_model)
