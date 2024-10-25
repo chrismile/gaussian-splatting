@@ -3,7 +3,6 @@ import torch
 from .upscaler import Upscaler
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
 
 
 class UpscalerOpenCV(Upscaler):
@@ -19,6 +18,7 @@ class UpscalerOpenCV(Upscaler):
 
     def apply(self, render_width, render_height, upscaled_width, upscaled_height, rendered_image, depth_image):
         numpy_image = rendered_image.cpu().numpy()
+        numpy_image = np.clip(numpy_image, 0.0, 1.0)
         numpy_image = np.transpose(numpy_image, (1, 2, 0))
         cv2_image = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR) * 255.0
         upscaled_image = self.sr_model.upsample(cv2_image)
