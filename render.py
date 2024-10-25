@@ -41,7 +41,7 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
     sf = 2
 
     #upscaler = None
-    #upscaler = UpscalerDLSS(ss_factor=sf)
+    upscaler = UpscalerDLSS(ss_factor=sf)
     #upscaler = UpscalerPyTorch(ss_factor=sf)
 
     #algo_name = 'EDSR'
@@ -51,7 +51,7 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
     #upscaler = UpscalerOpenCV(
     #    ss_factor=sf, algo_name=algo_name, model_path=f'/mnt/data/DL/img_upscale_models/x{sf}/{algo_name}_x{sf}.pb')
 
-    upscaler = UpscalerPIL(ss_factor=sf)
+    #upscaler = UpscalerPIL(ss_factor=sf)
 
     #upscaler_model = torch.load(os.path.join(model_path, "upscaling", "espcn_1024.pt"))
     #upscaler_model.eval()

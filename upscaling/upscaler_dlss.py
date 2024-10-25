@@ -16,8 +16,10 @@ class UpscalerDLSS(Upscaler):
         motion_vectors = torch.zeros(
             (rendered_image.shape[1], rendered_image.shape[2], 2), dtype=torch.float16, device=rendered_image.device)
         motion_vectors = torch.permute(motion_vectors, (2, 1, 0))  # H, W, C -> C, H, W (reversed on C++ side)
-        return pysrg.apply_supersampling_dlss(
+        upscaled_image = pysrg.apply_supersampling_dlss(
             upscaled_width, upscaled_height, rendered_image, depth_image, motion_vectors, exposure_value)
+        pysrg.reset_accumulation()
+        return upscaled_image
 
     def query_render_resolution(self, upscaled_width, upscaled_height):
         pysrg.set_perf_quality_dlss(pysrg.DlssPerfQuality.MAX_PERF)
