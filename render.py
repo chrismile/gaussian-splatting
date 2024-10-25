@@ -20,19 +20,45 @@ from utils.general_utils import safe_state
 from argparse import ArgumentParser
 from arguments import ModelParams, PipelineParams, get_combined_args
 from gaussian_renderer import GaussianModel
+from upscaling.upscaler_dlss import UpscalerDLSS
+from upscaling.upscaler_pytorch import UpscalerPyTorch
+from upscaling.upscaler_model import UpscalerModel
+
 
 def render_set(model_path, name, iteration, views, gaussians, pipeline, background, train_test_exp):
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
+    small_path = os.path.join(model_path, name, "ours_{}".format(iteration), "small")
+    upscaled_path = os.path.join(model_path, name, "ours_{}".format(iteration), "upscaled")
     gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
 
     makedirs(render_path, exist_ok=True)
+    makedirs(small_path, exist_ok=True)
+    makedirs(upscaled_path, exist_ok=True)
     makedirs(gts_path, exist_ok=True)
 
+    sf = 2
+    #upscaler = None
+    #upscaler = UpscalerDLSS(ss_factor=sf)
+    upscaler = UpscalerPyTorch(ss_factor=sf)
+    #upscaler_model = torch.load(os.path.join(model_path, "upscaling", "espcn_1024.pt"))
+    #upscaler_model.eval()
+    #upscaler = UpscalerModel(ss_factor=sf, model=upscaler_model)
+
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
-        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)["render"]
-        gt = view.original_image[0:3, :, :]
+        render_out = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp)
+        rendering = render_out["render"]
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
+        if sf != 1 and upscaler is not None:
+            render_out_ss = render(
+                view, gaussians, pipeline, background, use_trained_exp=train_test_exp, upscaler=upscaler)
+            if "render_small" in render_out_ss:
+                rendering_small = render_out_ss["render_small"]
+                torchvision.utils.save_image(rendering_small, os.path.join(small_path, '{0:05d}'.format(idx) + ".png"))
+            rendering_upscaled = render_out_ss["render"]
+            torchvision.utils.save_image(rendering_upscaled, os.path.join(upscaled_path, '{0:05d}'.format(idx) + ".png"))
+        gt = view.original_image[0:3, :, :]
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+
 
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool):
     with torch.no_grad():
@@ -47,6 +73,7 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
 
         if not skip_test:
              render_set(dataset.model_path, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, dataset.train_test_exp)
+
 
 if __name__ == "__main__":
     # Set up command line argument parser

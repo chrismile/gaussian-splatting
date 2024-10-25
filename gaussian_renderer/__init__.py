@@ -14,8 +14,13 @@ import math
 from diff_gaussian_rasterization import GaussianRasterizationSettings, GaussianRasterizer
 from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
+from upscaling.upscaler import Upscaler
+import upscaling.upscaler_model
 
-def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, override_color = None, use_trained_exp=False):
+
+def render(
+        viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, scaling_modifier=1.0,
+        override_color=None, use_trained_exp=False,  upscaler: Upscaler = None):
     """
     Render the scene. 
     
@@ -33,9 +38,20 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     tanfovx = math.tan(viewpoint_camera.FoVx * 0.5)
     tanfovy = math.tan(viewpoint_camera.FoVy * 0.5)
 
+    subsampling_factor = 1
+    if upscaler is not None:
+        subsampling_factor = upscaler.get_ss_factor()
+    if upscaler is not None:
+        render_width, render_height = upscaler.query_render_resolution(
+            viewpoint_camera.image_width, viewpoint_camera.image_height)
+        subsampling_factor = int(round(viewpoint_camera.image_width / render_width))
+    else:
+        render_width = int(viewpoint_camera.image_width) // subsampling_factor
+        render_height = int(viewpoint_camera.image_height) // subsampling_factor
+
     raster_settings = GaussianRasterizationSettings(
-        image_height=int(viewpoint_camera.image_height),
-        image_width=int(viewpoint_camera.image_width),
+        image_height=render_height,
+        image_width=render_width,
         tanfovx=tanfovx,
         tanfovy=tanfovy,
         bg=bg_color,
@@ -93,21 +109,34 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         scales = scales,
         rotations = rotations,
         cov3D_precomp = cov3D_precomp)
-        
+
     # Apply exposure to rendered image (training only)
     if use_trained_exp:
         exposure = pc.get_exposure_from_name(viewpoint_camera.image_name)
         rendered_image = torch.matmul(rendered_image.permute(1, 2, 0), exposure[:3, :3]).permute(2, 0, 1) + exposure[:3, 3,   None, None]
 
+    rendered_image_orig = None
+    if upscaler is not None:
+        rendered_image_orig = rendered_image
+        rendered_image = upscaler.apply(
+            render_width, render_height, int(viewpoint_camera.image_width), int(viewpoint_camera.image_height),
+            rendered_image=rendered_image_orig, depth_image=depth_image)
+        rendered_image_orig = rendered_image_orig.clamp(0, 1)
+    if upscaler is None or not isinstance(upscaler, upscaling.upscaler_model.UpscalerModel):
+        rendered_image = rendered_image.clamp(0, 1)
+
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
-    rendered_image = rendered_image.clamp(0, 1)
+    radii = radii * subsampling_factor
     out = {
         "render": rendered_image,
         "viewspace_points": screenspace_points,
-        "visibility_filter" : (radii > 0).nonzero(),
+        "visibility_filter": (radii > 0).nonzero(),
         "radii": radii,
-        "depth" : depth_image
-        }
-    
+        "depth": depth_image
+    }
+    if rendered_image_orig is not None:
+        rendered_image_orig = rendered_image_orig.clamp(0, 1)
+        out["render_small"] = rendered_image_orig
+
     return out
