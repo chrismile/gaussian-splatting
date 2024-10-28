@@ -66,6 +66,10 @@ def training(
     if upscaling_method_lower == 'torchsr' and torchsr_found:
         upscaler = UpscalerTorchSR(ss_factor=sf, model_name=upscaling_param_lower)
 
+    round_sizes = 1
+    if upscaler is not None and not upscaler.get_supports_fractional():
+        round_sizes = upscaler.get_ss_factor()
+
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
     for iteration in range(first_iter, opt.iterations + 1):
@@ -107,7 +111,8 @@ def training(
         bg = torch.rand((3), device="cuda") if opt.random_background else background
 
         render_pkg = render(
-            viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp, upscaler=upscaler)
+            viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp,
+            upscaler=upscaler, round_sizes=round_sizes)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
 
         # Loss
