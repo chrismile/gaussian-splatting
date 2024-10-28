@@ -1,3 +1,4 @@
+import torch
 from torchsr.models import *
 from .upscaler import Upscaler
 
@@ -16,13 +17,14 @@ class UpscalerTorchSR(Upscaler):
         elif model_name == 'ninasr_b0':
             self.model = ninasr_b0(scale=ss_factor, pretrained=True)
         elif model_name == 'ninasr_b1':
-            self.model = ninasr_b0(scale=ss_factor, pretrained=True)
+            self.model = ninasr_b1(scale=ss_factor, pretrained=True)
         elif model_name == 'ninasr_b2':
-            self.model = ninasr_b0(scale=ss_factor, pretrained=True)
+            self.model = ninasr_b2(scale=ss_factor, pretrained=True)
         elif model_name == 'carn':
             self.model = carn(scale=ss_factor, pretrained=True)
         else:
             raise RuntimeError(f'Error: Unsupported super resolution model name \'{model_name}\'.')
+        self.model = self.model.to(torch.device('cuda'))
 
     def apply(self, render_width, render_height, upscaled_width, upscaled_height, rendered_image, depth_image):
         input_image = rendered_image.unsqueeze(0)

@@ -95,10 +95,14 @@ configurations = [
     ('opencv', 'ESPCN'),
     ('opencv', 'FSRCNN'),
     ('opencv', 'LapSRN'),
+    ('torchsr', 'EDSR'),
+    ('torchsr', 'NinaSR_b0'),
+    ('torchsr', 'NinaSR_b1'),
+    ('torchsr', 'NinaSR_b2'),
     ('pil', 'bilinear'),
     ('pil', 'bicubic'),
     ('pil', 'lanczos'),
-    ('model', 'espcn_256.pt'),
+    #('model', 'espcn_256.pt'),
 ]
 for sf in scale_factors:
     for configuration in configurations:
@@ -109,6 +113,8 @@ for sf in scale_factors:
             command += ['--upscaling_method', f'{configuration[0]}']
         if configuration[1] is not None:
             command += ['--upscaling_param', f'{configuration[1]}']
+        if configuration[0] == 'opencv' and configuration[1] == 'LapSRN' and sf == 3:
+            continue
         commands.append(command)
 
 for sf in scale_factors:
