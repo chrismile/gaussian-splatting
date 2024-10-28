@@ -18,3 +18,6 @@ class UpscalerModel(Upscaler):
 
     def query_render_resolution(self, upscaled_width, upscaled_height):
         return super().query_render_resolution(upscaled_width, upscaled_height)
+
+    def get_supports_fractional(self) -> bool:
+        return False

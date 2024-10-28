@@ -5,6 +5,23 @@ import numpy as np
 from PIL import Image
 
 
+def pil_resample_algo_from_name(algo_name):
+    if algo_name is None:
+        return Image.Resampling.BICUBIC
+    elif algo_name == 'nearest':
+        return Image.Resampling.NEAREST
+    elif algo_name == 'lanczos':
+        return Image.Resampling.LANCZOS
+    elif algo_name == 'bilinear':
+        return Image.Resampling.BILINEAR
+    elif algo_name == 'bicubic':
+        return Image.Resampling.BICUBIC
+    elif algo_name == 'box':
+        return Image.Resampling.BOX
+    elif algo_name == 'hamming':
+        return Image.Resampling.HAMMING
+
+
 class UpscalerPIL(Upscaler):
     def __init__(self, ss_factor, resample_algo=Image.Resampling.LANCZOS):
         super().__init__(ss_factor)

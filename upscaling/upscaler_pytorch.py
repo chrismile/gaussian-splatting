@@ -5,7 +5,7 @@ import torch
 class UpscalerPyTorch(Upscaler):
     # For mode see: https://pytorch.org/docs/stable/generated/torch.nn.functional.interpolate.html
     # mode: 'nearest' | 'linear' | 'bilinear' | 'bicubic' | 'trilinear' | 'area' | 'nearest-exact'
-    def __init__(self, ss_factor, mode='bicubic', align_corners=None):
+    def __init__(self, ss_factor, mode='bicubic', align_corners=None, antialias=False):
         super().__init__(ss_factor)
         self.mode = mode
         self.align_corners = align_corners

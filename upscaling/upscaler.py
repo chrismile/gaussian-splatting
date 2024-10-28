@@ -25,3 +25,6 @@ class Upscaler(abc.ABC):
 
     def query_render_resolution(self, upscaled_width: int, upscaled_height: int) -> tuple[int, int]:
         return int(upscaled_width) // self.ss_factor, int(upscaled_height) // self.ss_factor
+
+    def get_supports_fractional(self) -> bool:
+        return False  # Set to False as a test

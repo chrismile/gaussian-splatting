@@ -27,8 +27,17 @@ try:
     TENSORBOARD_FOUND = True
 except ImportError:
     TENSORBOARD_FOUND = False
+try:
+    from upscaling.upscaler_torchsr import UpscalerTorchSR
+    torchsr_found = True
+except ImportError:
+    from upscaling.upscaler_dummy import UpscalerDummy as UpscalerTorchSR
+    torchsr_found = False
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+
+def training(
+        dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from,
+        sf: int, upscaling_method: str, upscaling_param: str):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -50,6 +59,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     viewpoint_indices = list(range(len(viewpoint_stack)))
     ema_loss_for_log = 0.0
     ema_Ll1depth_for_log = 0.0
+
+    upscaler = None
+    upscaling_method_lower = upscaling_method.lower() if upscaling_method is not None else None
+    upscaling_param_lower = upscaling_param.lower() if upscaling_param is not None else None
+    if upscaling_method_lower == 'torchsr' and torchsr_found:
+        upscaler = UpscalerTorchSR(ss_factor=sf, model_name=upscaling_param_lower)
 
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
@@ -91,7 +106,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         bg = torch.rand((3), device="cuda") if opt.random_background else background
 
-        render_pkg = render(viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp)
+        render_pkg = render(
+            viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp, upscaler=upscaler)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
 
         # Loss
@@ -107,7 +123,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             mono_invdepth = viewpoint_cam.invdepthmap.cuda()
             depth_mask = viewpoint_cam.depth_mask.cuda()
 
-            Ll1depth_pure = torch.abs((invDepth  - mono_invdepth) * depth_mask).mean()
+            Ll1depth_pure = torch.abs((invDepth - mono_invdepth) * depth_mask).mean()
             Ll1depth = depth_l1_weight(iteration) * Ll1depth_pure 
             loss += Ll1depth
             Ll1depth = Ll1depth.item()
@@ -237,9 +253,18 @@ if __name__ == "__main__":
     parser.add_argument('--disable_viewer', action='store_true', default=False)
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
+    parser.add_argument("--sf", default=1, type=int)
+    parser.add_argument("--upscaling_method", default=None)
+    parser.add_argument("--upscaling_param", default=None)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
-    
+    upscaling_method = None
+    upscaling_param = None
+    if hasattr(args, 'upscaling_method'):
+        upscaling_method = args.upscaling_method
+    if hasattr(args, 'upscaling_param'):
+        upscaling_param = args.upscaling_param
+
     print("Optimizing " + args.model_path)
 
     # Initialize system state (RNG)
@@ -249,7 +274,10 @@ if __name__ == "__main__":
     if not args.disable_viewer:
         network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from)
+    training(
+        lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations,
+        args.checkpoint_iterations, args.start_checkpoint, args.debug_from,
+        args.sf, upscaling_method, upscaling_param)
 
     # All done
     print("\nTraining complete.")

@@ -20,7 +20,7 @@ import upscaling.upscaler_model
 
 def render(
         viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, scaling_modifier=1.0,
-        override_color=None, use_trained_exp=False,  upscaler: Upscaler = None):
+        override_color=None, use_trained_exp=False, upscaler: Upscaler = None, round_sizes=1):
     """
     Render the scene. 
     
@@ -38,16 +38,22 @@ def render(
     tanfovx = math.tan(viewpoint_camera.FoVx * 0.5)
     tanfovy = math.tan(viewpoint_camera.FoVy * 0.5)
 
+    full_width = int(viewpoint_camera.image_width)
+    full_height = int(viewpoint_camera.image_height)
+    if round_sizes != 1:
+        full_width = (full_width // round_sizes) * round_sizes
+        full_height = (full_height // round_sizes) * round_sizes
+
     subsampling_factor = 1
     if upscaler is not None:
         subsampling_factor = upscaler.get_ss_factor()
     if upscaler is not None:
         render_width, render_height = upscaler.query_render_resolution(
-            viewpoint_camera.image_width, viewpoint_camera.image_height)
-        subsampling_factor = int(round(viewpoint_camera.image_width / render_width))
+            full_width, full_height)
+        subsampling_factor = int(round(full_width / render_width))
     else:
-        render_width = int(viewpoint_camera.image_width) // subsampling_factor
-        render_height = int(viewpoint_camera.image_height) // subsampling_factor
+        render_width = full_width // subsampling_factor
+        render_height = full_height // subsampling_factor
 
     raster_settings = GaussianRasterizationSettings(
         image_height=render_height,
@@ -119,7 +125,7 @@ def render(
     if upscaler is not None:
         rendered_image_orig = rendered_image
         rendered_image = upscaler.apply(
-            render_width, render_height, int(viewpoint_camera.image_width), int(viewpoint_camera.image_height),
+            render_width, render_height, full_width, full_height,
             rendered_image=rendered_image_orig, depth_image=depth_image)
         rendered_image_orig = rendered_image_orig.clamp(0, 1)
     if upscaler is None or not isinstance(upscaler, upscaling.upscaler_model.UpscalerModel):
