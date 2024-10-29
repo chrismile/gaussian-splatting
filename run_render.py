@@ -115,6 +115,8 @@ for sf in scale_factors:
             command += ['--upscaling_param', f'{configuration[1]}']
         if configuration[0] == 'opencv' and configuration[1] == 'LapSRN' and sf == 3:
             continue
+        if configuration[0] == 'dlss' and sf >= 4:
+            continue
         commands.append(command)
 
 for sf in scale_factors:

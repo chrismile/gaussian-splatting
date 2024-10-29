@@ -65,6 +65,8 @@ def training(
     upscaling_param_lower = upscaling_param.lower() if upscaling_param is not None else None
     if upscaling_method_lower == 'torchsr' and torchsr_found:
         upscaler = UpscalerTorchSR(ss_factor=sf, model_name=upscaling_param_lower)
+        for p in upscaler.model.parameters():
+            p.requires_grad = False
 
     round_sizes = 1
     if upscaler is not None and not upscaler.get_supports_fractional():
@@ -117,6 +119,10 @@ def training(
 
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
+        if upscaler is not None and round_sizes != 1:
+            cropped_width = (int(viewpoint_cam.image_width) // round_sizes) * round_sizes
+            cropped_height = (int(viewpoint_cam.image_height) // round_sizes) * round_sizes
+            gt_image = gt_image[:, :cropped_height, :cropped_width]
         Ll1 = l1_loss(image, gt_image)
         ssim_value = ssim(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
