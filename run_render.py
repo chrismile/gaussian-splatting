@@ -83,10 +83,11 @@ def escape_html(s):
     return s.replace('\n', '<br/>\n')
 
 
+scenes_dir = '/mnt/data/3DGS/360_v2'
 train_dir = '/mnt/data/3DGS/train'
-model_dir = os.path.join(train_dir, 'bonsai_default')
-
-commands = []
+#scenes = [('bonsai', 'images_2', 'bonsai_default')]
+scenes = [('bicycle', 'images_4', 'bicycle_default'), ('room', 'images_2', 'room_default')]
+shall_train = False
 scale_factors = [2, 3, 4]
 configurations = [
     ('dlss', None),
@@ -102,28 +103,40 @@ configurations = [
     ('pil', 'bilinear'),
     ('pil', 'bicubic'),
     ('pil', 'lanczos'),
-    #('model', 'espcn_256.pt'),
+    # ('model', 'espcn_256.pt'),
 ]
-for sf in scale_factors:
-    for configuration in configurations:
-        command = [
-            'python3', 'render.py', '-m', model_dir, '--antialiasing', '--sf', str(sf),
-        ]
-        if configuration[0] is not None:
-            command += ['--upscaling_method', f'{configuration[0]}']
-        if configuration[1] is not None:
-            command += ['--upscaling_param', f'{configuration[1]}']
-        if configuration[0] == 'opencv' and configuration[1] == 'LapSRN' and sf == 3:
-            continue
-        if configuration[0] == 'dlss' and sf >= 4:
-            continue
-        commands.append(command)
+commands = []
+for scene in scenes:
+    model_dir = os.path.join(train_dir, scene[2])
+    if shall_train:
+        scene_dir = os.path.join(scenes_dir, scene[0])
+        images_dir = scene[1]
+        commands.append([
+            'python3', 'train.py',
+            '-s', scene_dir, '-m', model_dir, '--images', images_dir, '--antialiasing', '--eval',
+            '--test_iterations', '7000', '15000', '30000'
+        ])
 
-for sf in scale_factors:
-    command = [
-        'python3', 'eval_upscale.py', '-m', model_dir, '--sf', str(sf),
-    ]
-    commands.append(command)
+    for sf in scale_factors:
+        for configuration in configurations:
+            command = [
+                'python3', 'render.py', '-m', model_dir, '--antialiasing', '--sf', str(sf),
+            ]
+            if configuration[0] is not None:
+                command += ['--upscaling_method', f'{configuration[0]}']
+            if configuration[1] is not None:
+                command += ['--upscaling_param', f'{configuration[1]}']
+            if configuration[0] == 'opencv' and configuration[1] == 'LapSRN' and sf == 3:
+                continue
+            if configuration[0] == 'dlss' and sf >= 4:
+                continue
+            commands.append(command)
+
+    for sf in scale_factors:
+        command = [
+            'python3', 'eval_upscale.py', '-m', model_dir, '--sf', str(sf),
+        ]
+        commands.append(command)
 
 if __name__ == '__main__':
     shall_send_email = True

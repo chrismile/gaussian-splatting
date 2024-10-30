@@ -11,6 +11,7 @@
 
 import os
 import torch
+import torchvision
 from random import randint
 from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render, network_gui
@@ -35,9 +36,15 @@ except ImportError:
     torchsr_found = False
 
 
+def resize_tensor(t, factor):
+    w = t.shape[-1]
+    h = t.shape[-2]
+    return torchvision.transforms.functional.resize(t, (h // factor, w // factor))
+
+
 def training(
         dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from,
-        sf: int, upscaling_method: str, upscaling_param: str):
+        sf: int, upscaling_method: str, upscaling_param: str, downscale: int):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -112,10 +119,19 @@ def training(
 
         bg = torch.rand((3), device="cuda") if opt.random_background else background
 
+        if downscale != 1:
+            image_width_orig = viewpoint_cam.image_width
+            image_height_orig = viewpoint_cam.image_height
+            viewpoint_cam.image_width = int(viewpoint_cam.image_width) // downscale
+            viewpoint_cam.image_height = int(viewpoint_cam.image_height) // downscale
         render_pkg = render(
             viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp,
             upscaler=upscaler, round_sizes=round_sizes)
-        image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
+        image, viewspace_point_tensor, visibility_filter, radii = \
+            render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
+        if downscale != 1:
+            viewpoint_cam.image_width = image_width_orig
+            viewpoint_cam.image_height = image_height_orig
 
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
@@ -123,6 +139,8 @@ def training(
             cropped_width = (int(viewpoint_cam.image_width) // round_sizes) * round_sizes
             cropped_height = (int(viewpoint_cam.image_height) // round_sizes) * round_sizes
             gt_image = gt_image[:, :cropped_height, :cropped_width]
+        if downscale != 1:
+            gt_image = resize_tensor(gt_image, downscale)
         Ll1 = l1_loss(image, gt_image)
         ssim_value = ssim(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
@@ -133,6 +151,9 @@ def training(
             invDepth = render_pkg["depth"]
             mono_invdepth = viewpoint_cam.invdepthmap.cuda()
             depth_mask = viewpoint_cam.depth_mask.cuda()
+            if downscale != 1:
+                mono_invdepth = resize_tensor(mono_invdepth, downscale)
+                depth_mask = resize_tensor(depth_mask, downscale)
 
             Ll1depth_pure = torch.abs((invDepth - mono_invdepth) * depth_mask).mean()
             Ll1depth = depth_l1_weight(iteration) * Ll1depth_pure 
@@ -267,6 +288,7 @@ if __name__ == "__main__":
     parser.add_argument("--sf", default=1, type=int)
     parser.add_argument("--upscaling_method", default=None)
     parser.add_argument("--upscaling_param", default=None)
+    parser.add_argument("--downscale", type=int, default=1)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     upscaling_method = None
@@ -288,7 +310,7 @@ if __name__ == "__main__":
     training(
         lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations,
         args.checkpoint_iterations, args.start_checkpoint, args.debug_from,
-        args.sf, upscaling_method, upscaling_param)
+        args.sf, upscaling_method, upscaling_param, args.downscale)
 
     # All done
     print("\nTraining complete.")

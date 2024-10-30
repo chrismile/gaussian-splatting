@@ -27,7 +27,7 @@ class UpscalerTorchSR(Upscaler):
         self.model = self.model.to(torch.device('cuda'))
 
     def apply(self, render_width, render_height, upscaled_width, upscaled_height, rendered_image, depth_image):
-        input_image = rendered_image.unsqueeze(0)
+        input_image = rendered_image.clamp(0, 1).unsqueeze(0)
         rendered_image = self.model(input_image).squeeze(0)
         rendered_image = rendered_image.clamp(0, 1)
         return rendered_image
