@@ -26,15 +26,27 @@
 
 import os
 import sys
+import math
 import itertools
 import pathlib
 import subprocess
+from typing import Callable
 import html
 import smtplib
 import ssl
 from email.message import EmailMessage
 from email.headerregistry import Address
 from email.utils import formatdate
+import skimage
+import skimage.io
+import skimage.metrics
+import lpips
+import torch
+import torchvision
+import matplotlib
+import matplotlib.pyplot as plt
+import warnings
+warnings.filterwarnings("ignore")
 
 
 def send_mail(
@@ -85,59 +97,123 @@ def escape_html(s):
 
 scenes_dir = '/mnt/data/3DGS/360_v2'
 train_dir = '/mnt/data/3DGS/train'
-#scenes = [('bonsai', 'images_2', 'bonsai_default')]
-scenes = [('bicycle', 'images_4', 'bicycle_default'), ('room', 'images_2', 'room_default')]
-scale_factors = [2, 3, 4]
+#scenes = [('bonsai', 'images_2')]
+scenes = [('bicycle', 'images_4'), ('room', 'images_2')]
+case = 'train'
+iterations = 30000
+img_idx = '00000'
+scale_factors = [2]
 configurations = [
-    ('dlss', None),
-    ('pytorch', 'bicubic'),
-    ('opencv', 'EDSR'),
-    ('opencv', 'ESPCN'),
-    ('opencv', 'FSRCNN'),
-    ('opencv', 'LapSRN'),
-    ('torchsr', 'EDSR'),
-    ('torchsr', 'NinaSR_b0'),
-    ('torchsr', 'NinaSR_b1'),
-    ('torchsr', 'NinaSR_b2'),
-    ('pil', 'bilinear'),
-    ('pil', 'bicubic'),
-    ('pil', 'lanczos'),
-    # ('model', 'espcn_256.pt'),
+    None,
+    'ninasr_b1',
 ]
+
+
+metrics = ['MSE', 'RMSE', 'PSNR', 'SSIM', 'LPIPS_Alex', 'LPIPS_VGG']
+loss_fn_alex = lpips.LPIPS(net='alex')
+loss_fn_vgg = lpips.LPIPS(net='vgg')
+
+
+def skimage_to_torch(img):
+    t = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
+    tensor = t(skimage.img_as_float(img)).float()
+    tensor = tensor[None, 0:3, :, :] * 2 - 1
+    return tensor
+
+
+def compare_images(filename_gt, filename_approx):
+    img_gt = skimage.io.imread(filename_gt)
+    img_approx = skimage.io.imread(filename_approx)
+    mse = skimage.metrics.mean_squared_error(img_gt, img_approx)
+    psnr = skimage.metrics.peak_signal_noise_ratio(img_gt, img_approx)
+    data_range = img_gt.max() - img_approx.min()
+    ssim = skimage.metrics.structural_similarity(
+        img_gt, img_approx, data_range=data_range, channel_axis=-1, multichannel=True)
+
+    img0 = skimage_to_torch(img_gt)
+    img1 = skimage_to_torch(img_approx)
+    d_alex = loss_fn_alex(img0, img1).item()
+    d_vgg = loss_fn_vgg(img0, img1).item()
+
+    return {
+        'MSE': mse,
+        'RMSE': math.sqrt(mse),
+        'PSNR': psnr,
+        'SSIM': ssim,
+        'LPIPS_Alex': d_alex,
+        'LPIPS_VGG': d_vgg,
+    }
+
+
+def eval_train(eval_name, gt_image_dir, image_dirs):
+    print(f'Starting test \'{eval_name}\'...')
+    filename_gt = os.path.join(gt_image_dir, f'{img_idx}.png')
+    results = []
+    for test_dir in image_dirs:
+        test_name = os.path.basename(test_dir)
+        image_dir = os.path.join(test_dir, case, f'ours_{iterations}', 'renders')
+        print(f"Test '{test_name}'...")
+        filename_approx = os.path.join(image_dir, f'{img_idx}.png')
+        result = compare_images(filename_gt, filename_approx)
+        result['name'] = test_name
+        results.append(result)
+
+    results = sorted(results, key=lambda d: d['name'])
+    print(results)
+    #plot_results(base_dir, args.sf, results)
+
+
 commands = []
 for scene in scenes:
-    model_dir = os.path.join(train_dir, scene[2])
-    if not os.path.exists(model_dir):
-        scene_dir = os.path.join(scenes_dir, scene[0])
-        images_dir = scene[1]
+    scene_dir = os.path.join(scenes_dir, scene[0])
+    images_dir = scene[1]
+
+    # Check if ground truth was trained.
+    gt_model_dir = os.path.join(train_dir, f'{scene[0]}_default')
+    gt_image_dir = os.path.join(gt_model_dir, case, f'ours_{iterations}', 'renders')
+    if not os.path.exists(gt_model_dir):
         commands.append([
             'python3', 'train.py',
-            '-s', scene_dir, '-m', model_dir, '--images', images_dir, '--antialiasing', '--eval',
+            '-s', scene_dir, '-m', gt_model_dir, '--images', images_dir, '--antialiasing', '--eval',
             '--test_iterations', '7000', '15000', '30000'
         ])
+    if not os.path.exists(gt_model_dir):
+        commands.append(['python3', 'render.py', '-m', gt_model_dir, '--antialiasing'])
 
     for sf in scale_factors:
+        image_dirs = []
         for configuration in configurations:
-            command = [
-                'python3', 'render.py', '-m', model_dir, '--antialiasing', '--sf', str(sf),
-            ]
-            if configuration[0] is not None:
-                command += ['--upscaling_method', f'{configuration[0]}']
-            if configuration[1] is not None:
-                command += ['--upscaling_param', f'{configuration[1]}']
-            if configuration[0] == 'opencv' and configuration[1] == 'LapSRN' and sf == 3:
-                continue
-            if configuration[0] == 'dlss' and sf >= 4:
-                continue
-            commands.append(command)
+            config_name = configuration if configuration is not None else 'default'
+            model_dir = os.path.join(train_dir, f'{scene[0]}_{config_name}')
+            if not os.path.exists(model_dir):
+                command_train = [
+                    'python3', 'train.py',
+                    '-s', scene_dir, '-m', model_dir, '--images', images_dir, '--antialiasing', '--eval',
+                    '--test_iterations', '7000', '15000', '30000',
+                    '--sf', str(sf)
+                ]
+                if configuration is not None:
+                    command_train += [
+                        '--sf', str(sf),
+                        '--upscaling_method', 'torchsr',
+                        '--upscaling_param', f'{configuration}'
+                    ]
+                else:
+                    command_train += ['--downscale', str(sf)]
+                commands.append(command_train)
 
-    for sf in scale_factors:
-        command = [
-            'python3', 'eval_upscale.py', '-m', model_dir, '--sf', str(sf),
-        ]
-        commands.append(command)
+            image_dir = os.path.join(model_dir, case, f'ours_{iterations}', 'renders')
+            image_dirs.append(image_dir)
+            if not os.path.exists(image_dir):
+                commands.append(['python3', 'render.py', '-m', model_dir, '--antialiasing'])
+
+        commands.append(lambda: eval_train(f'{scene[0]}_x{sf}', gt_image_dir, image_dirs))
+
 
 if __name__ == '__main__':
+    matplotlib.rcParams.update({'font.family': 'Linux Biolinum O'})
+    matplotlib.rcParams.update({'font.size': 17.5})
+
     shall_send_email = True
     pwd_path = os.path.join(pathlib.Path.home(), 'Documents', 'mailpwd.txt')
     use_email = pathlib.Path(pwd_path).is_file()
@@ -152,6 +228,10 @@ if __name__ == '__main__':
             recipient_email_address = lines[5]
 
     for command in commands:
+        if isinstance(command, Callable):
+            command()
+            continue
+
         print(f"Running '{' '.join(command)}'...")
         proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (output, err) = proc.communicate()

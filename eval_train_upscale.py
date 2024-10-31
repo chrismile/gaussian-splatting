@@ -104,17 +104,21 @@ def main():
     parser.add_argument('--iterations', type=int, default=30000)
     parser.add_argument('--img_idx', default='00000')
     parser.add_argument('--case', default='train')
+    parser.add_argument('--gt_scene')
+    parser.add_argument('--test_scenes', nargs='+')
+
     args = parser.parse_args()
 
-    gt_dir = '/mnt/data/3DGS/train/bonsai_default'
+    gt_dir = args.gt_scene  # '/mnt/data/3DGS/train/bonsai_default'
     gt_image_dir = os.path.join(gt_dir, args.case, f'ours_{args.iterations}', 'renders')
     if not os.path.exists(gt_image_dir):
         invoke_command(['python3', 'render.py', '-m', gt_dir, '--antialiasing'])
     filename_gt = os.path.join(gt_image_dir, f'{args.img_idx}.png')
-    test_dirs = [
-        '/mnt/data/3DGS/train/bonsai_ds2',
-        '/mnt/data/3DGS/train/bonsai_ninasr_b1',
-    ]
+    test_dirs = args.test_scenes
+    # [
+    #     '/mnt/data/3DGS/train/bonsai_ds2',
+    #     '/mnt/data/3DGS/train/bonsai_ninasr_b1',
+    # ]
     results = []
     for test_dir in test_dirs:
         if not os.path.exists(test_dir):
