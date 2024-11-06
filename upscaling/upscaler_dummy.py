@@ -6,7 +6,9 @@ class UpscalerDummy(Upscaler):
     def __init__(self, ss_factor, **kwargs):
         super().__init__(ss_factor)
 
-    def apply(self, render_width, render_height, upscaled_width, upscaled_height, rendered_image, depth_image):
+    def apply(
+            self, render_width, render_height, upscaled_width, upscaled_height,
+            rendered_image, depth_image, gradient_image):
         return torch.nn.functional.interpolate(
             rendered_image.unsqueeze(0), size=(upscaled_height, upscaled_width),
             mode='bicubic', align_corners=False).squeeze(0)

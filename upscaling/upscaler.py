@@ -20,7 +20,7 @@ class Upscaler(abc.ABC):
     @abc.abstractmethod
     def apply(
             self, render_width: int, render_height: int, upscaled_width: int, upscaled_height: int,
-            rendered_image, depth_image):
+            rendered_image, depth_image, gradient_image):
         raise NotImplementedError()
 
     def query_render_resolution(self, upscaled_width: int, upscaled_height: int) -> tuple[int, int]:

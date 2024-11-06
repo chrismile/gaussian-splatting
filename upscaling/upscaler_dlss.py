@@ -20,7 +20,9 @@ class UpscalerDLSS(Upscaler):
                 'Error: UpscalerDLSS only supports an upscaling factor of 2 and 3. Falling back to 3.', file=sys.stderr)
         pysrg.set_perf_quality_dlss(self.perf_quality_mode)
 
-    def apply(self, render_width, render_height, upscaled_width, upscaled_height, rendered_image, depth_image):
+    def apply(
+            self, render_width, render_height, upscaled_width, upscaled_height,
+            rendered_image, depth_image, gradient_image):
         exposure_value = 1.0  # Use something else?
         motion_vectors = torch.zeros(
             (rendered_image.shape[1], rendered_image.shape[2], 2), dtype=torch.float16, device=rendered_image.device)

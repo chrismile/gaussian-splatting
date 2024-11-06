@@ -27,7 +27,9 @@ class UpscalerPIL(Upscaler):
         super().__init__(ss_factor)
         self.resample_algo = resample_algo
 
-    def apply(self, render_width, render_height, upscaled_width, upscaled_height, rendered_image, depth_image):
+    def apply(
+            self, render_width, render_height, upscaled_width, upscaled_height,
+            rendered_image, depth_image, gradient_image):
         numpy_image = rendered_image.cpu().numpy()
         numpy_image = np.clip(numpy_image, 0.0, 1.0)
         numpy_image = np.transpose(numpy_image, (1, 2, 0))

@@ -8,7 +8,9 @@ class UpscalerModel(Upscaler):
         self.model = model
         self.train_model = train_model
 
-    def apply(self, render_width, render_height, upscaled_width, upscaled_height, rendered_image, depth_image):
+    def apply(
+            self, render_width, render_height, upscaled_width, upscaled_height,
+            rendered_image, depth_image, gradient_image):
         rendered_image_orig = rendered_image
         input_image = torch.cat([rendered_image_orig, depth_image], dim=0).unsqueeze(0)
         with torch.set_grad_enabled(self.train_model):

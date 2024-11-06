@@ -26,7 +26,9 @@ class UpscalerTorchSR(Upscaler):
             raise RuntimeError(f'Error: Unsupported super resolution model name \'{model_name}\'.')
         self.model = self.model.to(torch.device('cuda'))
 
-    def apply(self, render_width, render_height, upscaled_width, upscaled_height, rendered_image, depth_image):
+    def apply(
+            self, render_width, render_height, upscaled_width, upscaled_height,
+            rendered_image, depth_image, gradient_image):
         input_image = rendered_image.clamp(0, 1).unsqueeze(0)
         rendered_image = self.model(input_image).squeeze(0)
         rendered_image = rendered_image.clamp(0, 1)

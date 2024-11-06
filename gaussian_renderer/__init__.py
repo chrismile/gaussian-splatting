@@ -106,7 +106,7 @@ def render(
         colors_precomp = override_color
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
-    rendered_image, radii, depth_image = rasterizer(
+    rendered_image, radii, gradient_image, depth_image = rasterizer(
         means3D = means3D,
         means2D = means2D,
         shs = shs,
@@ -126,7 +126,7 @@ def render(
         rendered_image_orig = rendered_image
         rendered_image = upscaler.apply(
             render_width, render_height, full_width, full_height,
-            rendered_image=rendered_image_orig, depth_image=depth_image)
+            rendered_image=rendered_image_orig, depth_image=depth_image, gradient_image=gradient_image)
         rendered_image_orig = rendered_image_orig.clamp(0, 1)
     if upscaler is None or not isinstance(upscaler, upscaling.upscaler_model.UpscalerModel):
         rendered_image = rendered_image.clamp(0, 1)
@@ -139,7 +139,8 @@ def render(
         "viewspace_points": screenspace_points,
         "visibility_filter": (radii > 0).nonzero(),
         "radii": radii,
-        "depth": depth_image
+        "depth": depth_image,
+        "gradient": gradient_image
     }
     if rendered_image_orig is not None:
         rendered_image_orig = rendered_image_orig.clamp(0, 1)

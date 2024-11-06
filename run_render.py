@@ -86,22 +86,29 @@ def escape_html(s):
 scenes_dir = '/mnt/data/3DGS/360_v2'
 train_dir = '/mnt/data/3DGS/train'
 #scenes = [('bonsai', 'images_2', 'bonsai_default')]
-scenes = [('bicycle', 'images_4', 'bicycle_default'), ('room', 'images_2', 'room_default')]
+#scenes = [('bicycle', 'images_4', 'bicycle_default'), ('room', 'images_2', 'room_default')]
+scenes = [
+    ('bonsai', 'images_2', 'bonsai_default'),
+    ('bicycle', 'images_4', 'bicycle_default'),
+    ('room', 'images_2', 'room_default')
+]
 scale_factors = [2, 3, 4]
 configurations = [
-    ('dlss', None),
-    ('pytorch', 'bicubic'),
-    ('opencv', 'EDSR'),
-    ('opencv', 'ESPCN'),
-    ('opencv', 'FSRCNN'),
-    ('opencv', 'LapSRN'),
-    ('torchsr', 'EDSR'),
-    ('torchsr', 'NinaSR_b0'),
-    ('torchsr', 'NinaSR_b1'),
-    ('torchsr', 'NinaSR_b2'),
-    ('pil', 'bilinear'),
-    ('pil', 'bicubic'),
-    ('pil', 'lanczos'),
+    # ('dlss', None),
+    # ('pytorch', 'bicubic'),
+    # ('opencv', 'EDSR'),
+    # ('opencv', 'ESPCN'),
+    # ('opencv', 'FSRCNN'),
+    # ('opencv', 'LapSRN'),
+    # ('torchsr', 'EDSR'),
+    # ('torchsr', 'NinaSR_b0'),
+    # ('torchsr', 'NinaSR_b1'),
+    # ('torchsr', 'NinaSR_b2'),
+    # ('pil', 'bilinear'),
+    # ('pil', 'bicubic'),
+    # ('pil', 'lanczos'),
+    ('diff_bicubic', None),
+
     # ('model', 'espcn_256.pt'),
 ]
 commands = []

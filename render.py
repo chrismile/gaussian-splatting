@@ -31,6 +31,12 @@ try:
 except ImportError:
     from upscaling.upscaler_dummy import UpscalerDummy as UpscalerTorchSR
     torchsr_found = False
+try:
+    from upscaling.upscaler_diff_bicubic import UpscalerDiffBicubic
+    diff_bicubic_found = True
+except ImportError:
+    from upscaling.upscaler_dummy import UpscalerDummy as UpscalerDiffBicubic
+    diff_bicubic_found = False
 
 
 def render_set(
@@ -77,6 +83,8 @@ def render_set(
         upscaler = UpscalerModel(ss_factor=sf, model=upscaler_model)
     elif upscaling_method_lower == 'torchsr' and torchsr_found:
         upscaler = UpscalerTorchSR(ss_factor=sf, model_name=upscaling_param_lower)
+    elif upscaling_method_lower == 'diff_bicubic' and diff_bicubic_found:
+        upscaler = UpscalerDiffBicubic(ss_factor=sf)
 
     round_sizes = 1
     if upscaler is not None and not upscaler.get_supports_fractional():
