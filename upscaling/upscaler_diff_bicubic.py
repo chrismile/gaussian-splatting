@@ -14,9 +14,19 @@ class UpscalerDiffBicubic(Upscaler):
             rendered_image, depth_image, gradient_image):
         num_channels = gradient_image.shape[0] // 3
         gradient_image = -gradient_image.reshape((num_channels, 3, gradient_image.shape[1], gradient_image.shape[2]))
+
+        # For comparing analytic gradients with numerical ones.
+        #dy, dx = torch.gradient(rendered_image, dim=[1, 2])
+        #dxy = torch.gradient(dx, dim=1)
+        #for i in range(3):
+        #    gradient_image[i, 0, :, :] = dx[i, :, :]
+        #    gradient_image[i, 1, :, :] = dy[i, :, :]
+        #    gradient_image[i, 2, :, :] = dxy[0][i, :, :]
+
         upscaled_image = BicubicInterpolation.apply(
             rendered_image, gradient_image, upscaled_width, upscaled_height)
         return upscaled_image
+
 
     def query_render_resolution(self, upscaled_width, upscaled_height):
         return super().query_render_resolution(upscaled_width, upscaled_height)
