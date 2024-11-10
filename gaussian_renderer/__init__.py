@@ -22,7 +22,7 @@ import upscaling.upscaler_model
 def render(
         viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, scaling_modifier=1.0,
         override_color=None, use_trained_exp=False, upscaler: Upscaler = None, round_sizes=1,
-        measure_time=False):
+        measure_time=False, use_events=False):
     """
     Render the scene. 
     
@@ -110,8 +110,13 @@ def render(
     # Rasterize visible Gaussians to image, obtain their radii (on screen).
     elapsed_time_render = 0.0
     if measure_time:
-        torch.cuda.synchronize()
-        start_time_render = time.time()
+        if use_events:
+            start_render = torch.cuda.Event(enable_timing=True)
+            end_render = torch.cuda.Event(enable_timing=True)
+            start_render.record()
+        else:
+            torch.cuda.synchronize()
+            start_time_render = time.time()
     rendered_image, radii, gradient_image, depth_image = rasterizer(
         means3D = means3D,
         means2D = means2D,
@@ -122,9 +127,14 @@ def render(
         rotations = rotations,
         cov3D_precomp = cov3D_precomp)
     if measure_time:
-        torch.cuda.synchronize()
-        end_time_render = time.time()
-        elapsed_time_render = end_time_render - start_time_render
+        if use_events:
+            end_render.record()
+            torch.cuda.synchronize()
+            elapsed_time_render = start_render.elapsed_time(end_render) * 1e-3
+        else:
+            torch.cuda.synchronize()
+            end_time_render = time.time()
+            elapsed_time_render = end_time_render - start_time_render
 
     # Apply exposure to rendered image (training only)
     if use_trained_exp:
@@ -136,15 +146,25 @@ def render(
     if upscaler is not None:
         rendered_image_orig = rendered_image
         if measure_time:
-            torch.cuda.synchronize()
-            start_time_upscale = time.time()
+            if use_events:
+                start_upscale = torch.cuda.Event(enable_timing=True)
+                end_upscale = torch.cuda.Event(enable_timing=True)
+                start_upscale.record()
+            else:
+                torch.cuda.synchronize()
+                start_time_upscale = time.time()
         rendered_image = upscaler.apply(
             render_width, render_height, full_width, full_height,
             rendered_image=rendered_image_orig, depth_image=depth_image, gradient_image=gradient_image)
         if measure_time:
-            torch.cuda.synchronize()
-            end_time_upscale = time.time()
-            elapsed_time_upscale = end_time_upscale - start_time_upscale
+            if use_events:
+                end_upscale.record()
+                torch.cuda.synchronize()
+                elapsed_time_upscale = start_upscale.elapsed_time(end_upscale) * 1e-3
+            else:
+                torch.cuda.synchronize()
+                end_time_upscale = time.time()
+                elapsed_time_upscale = end_time_upscale - start_time_upscale
         rendered_image_orig = rendered_image_orig.clamp(0, 1)
     if upscaler is None or not isinstance(upscaler, upscaling.upscaler_model.UpscalerModel):
         rendered_image = rendered_image.clamp(0, 1)
