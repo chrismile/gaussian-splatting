@@ -78,8 +78,12 @@ def render_set(
         # algo_name = 'ESPCN'
         # algo_name = 'FSRCNN'
         # algo_name = 'LapSRN'
+        model_base_path_cv = '/mnt/data/DL'
+        if not os.path.exists(model_base_path_cv):
+            model_base_path_cv = '/home/neuhauser/datasets/DL'
+        model_path_cv = f'{model_base_path_cv}/img_upscale_models/x{sf}/{algo_name}_x{sf}.pb'
         upscaler = UpscalerOpenCV(
-            ss_factor=sf, algo_name=algo_name, model_path=f'/mnt/data/DL/img_upscale_models/x{sf}/{algo_name}_x{sf}.pb')
+            ss_factor=sf, algo_name=algo_name, model_path=model_path_cv)
     elif upscaling_method_lower == 'pil':
         algo = pil_resample_algo_from_name(upscaling_param_lower)
         upscaler = UpscalerPIL(ss_factor=sf, resample_algo=algo)
