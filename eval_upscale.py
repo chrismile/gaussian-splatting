@@ -115,7 +115,7 @@ def plot_timings(base_dir, sf, results):
     values = []
     for result in results:
         result_name = result['name']
-        time_value = result['value']
+        time_value = result['time']
         names.append(result_name)
         values.append(time_value)
     plt.setp(ax.get_xticklabels(), rotation=60, fontsize=14, horizontalalignment='right')
