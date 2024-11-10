@@ -28,6 +28,7 @@ import os
 import sys
 import math
 import argparse
+import numpy as np
 import skimage
 import skimage.io
 import skimage.metrics
@@ -104,6 +105,25 @@ def plot_results(base_dir, sf, results):
         plt.savefig(os.path.join(base_dir, f'x{sf}_{metric_lower}.pdf'), bbox_inches='tight', pad_inches=0.01)
 
 
+def plot_timings(base_dir, sf, results):
+    fig, ax = plt.subplots()
+    fig.set_figwidth(7)
+    fig.set_figheight(6)
+    ax.set_ylabel('time (s)')
+    # ax.set_title(metric)
+    names = []
+    values = []
+    for result in results:
+        result_name = result['name']
+        time_value = result['value']
+        names.append(result_name)
+        values.append(time_value)
+    plt.setp(ax.get_xticklabels(), rotation=60, fontsize=14, horizontalalignment='right')
+    ax.bar(names, values)
+    plt.tight_layout()
+    plt.savefig(os.path.join(base_dir, f'x{sf}_time.pdf'), bbox_inches='tight', pad_inches=0.01)
+
+
 def main():
     matplotlib.rcParams.update({'font.family': 'Linux Biolinum O'})
     matplotlib.rcParams.update({'font.size': 17.5})
@@ -114,7 +134,9 @@ def main():
     parser.add_argument('-m', '--dir')
     parser.add_argument('--iterations', type=int, default=30000)
     parser.add_argument('-s', '--sf', type=int, default=2)
-    parser.add_argument('--img_idx', default='00000')
+    #parser.add_argument('--img_idx', default='00000')
+    parser.add_argument('--img_idx_min', type=int, default=0)
+    parser.add_argument('--img_idx_max', type=int, default=9)
     parser.add_argument('--case', default='train')
     args = parser.parse_args()
 
@@ -122,20 +144,37 @@ def main():
     if args.dir is not None:
         base_dir = os.path.join(args.dir, args.case)
     base_path = f'ours_{args.iterations}_x{args.sf}_'
+    num_images = args.img_idx_max - args.img_idx_min + 1
     results = []
+    upscale_timings = []
     for test_dir in os.listdir(base_dir):
         if not test_dir.startswith(base_path):
             continue
         test_name = test_dir[len(base_path):]
         print(f"Test '{test_name}'...")
-        filename_gt = os.path.join(base_dir, test_dir, 'renders', f'{args.img_idx}.png')
-        filename_approx = os.path.join(base_dir, test_dir, 'upscaled', f'{args.img_idx}.png')
-        result = compare_images(filename_gt, filename_approx)
-        result['name'] = test_name
+        result = {'name': test_name}
+        for metric in metrics:
+            result[metric] = 0.0
+        for img_idx in range(args.img_idx_min, args.img_idx_max + 1):
+            img_idx_string = f'{img_idx:05d}'
+            filename_gt = os.path.join(base_dir, test_dir, 'renders', f'{img_idx_string}.png')
+            filename_approx = os.path.join(base_dir, test_dir, 'upscaled', f'{img_idx_string}.png')
+            result_frame = compare_images(filename_gt, filename_approx)
+            for metric in metrics:
+                result[metric] += result_frame[metric] / num_images
         results.append(result)
 
+        # Get timings.
+        timings_path = os.path.join(base_dir, test_dir, 'times_upscale.txt')
+        with open(timings_path) as file:
+            upscale_timings_current = [float(line.rstrip()) for line in file]
+            upscale_timings_current = np.array(upscale_timings_current)
+            upscale_timings.append({'name': test_name, 'time': np.mean(upscale_timings_current)})
+
     results = sorted(results, key=lambda d: d['name'])
+    upscale_timings = sorted(upscale_timings, key=lambda d: d['name'])
     plot_results(base_dir, args.sf, results)
+    plot_timings(base_dir, args.sf, upscale_timings)
 
 
 if __name__ == '__main__':

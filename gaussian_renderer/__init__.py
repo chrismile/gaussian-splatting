@@ -9,8 +9,9 @@
 # For inquiries contact  george.drettakis@inria.fr
 #
 
-import torch
 import math
+import time
+import torch
 from diff_gaussian_rasterization import GaussianRasterizationSettings, GaussianRasterizer
 from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
@@ -20,7 +21,8 @@ import upscaling.upscaler_model
 
 def render(
         viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, scaling_modifier=1.0,
-        override_color=None, use_trained_exp=False, upscaler: Upscaler = None, round_sizes=1):
+        override_color=None, use_trained_exp=False, upscaler: Upscaler = None, round_sizes=1,
+        measure_time=False):
     """
     Render the scene. 
     
@@ -105,7 +107,11 @@ def render(
     else:
         colors_precomp = override_color
 
-    # Rasterize visible Gaussians to image, obtain their radii (on screen). 
+    # Rasterize visible Gaussians to image, obtain their radii (on screen).
+    elapsed_time_render = 0.0
+    if measure_time:
+        torch.cuda.synchronize()
+        start_time_render = time.time()
     rendered_image, radii, gradient_image, depth_image = rasterizer(
         means3D = means3D,
         means2D = means2D,
@@ -115,18 +121,30 @@ def render(
         scales = scales,
         rotations = rotations,
         cov3D_precomp = cov3D_precomp)
+    if measure_time:
+        torch.cuda.synchronize()
+        end_time_render = time.time()
+        elapsed_time_render = end_time_render - start_time_render
 
     # Apply exposure to rendered image (training only)
     if use_trained_exp:
         exposure = pc.get_exposure_from_name(viewpoint_camera.image_name)
         rendered_image = torch.matmul(rendered_image.permute(1, 2, 0), exposure[:3, :3]).permute(2, 0, 1) + exposure[:3, 3,   None, None]
 
+    elapsed_time_upscale = 0.0
     rendered_image_orig = None
     if upscaler is not None:
         rendered_image_orig = rendered_image
+        if measure_time:
+            torch.cuda.synchronize()
+            start_time_upscale = time.time()
         rendered_image = upscaler.apply(
             render_width, render_height, full_width, full_height,
             rendered_image=rendered_image_orig, depth_image=depth_image, gradient_image=gradient_image)
+        if measure_time:
+            torch.cuda.synchronize()
+            end_time_upscale = time.time()
+            elapsed_time_upscale = end_time_upscale - start_time_upscale
         rendered_image_orig = rendered_image_orig.clamp(0, 1)
     if upscaler is None or not isinstance(upscaler, upscaling.upscaler_model.UpscalerModel):
         rendered_image = rendered_image.clamp(0, 1)
@@ -140,7 +158,9 @@ def render(
         "visibility_filter": (radii > 0).nonzero(),
         "radii": radii,
         "depth": depth_image,
-        "gradient": gradient_image
+        "gradient": gradient_image,
+        "time_render": elapsed_time_render,
+        "time_upscale": elapsed_time_upscale,
     }
     if rendered_image_orig is not None:
         rendered_image_orig = rendered_image_orig.clamp(0, 1)

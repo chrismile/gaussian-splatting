@@ -39,6 +39,12 @@ except ImportError:
     diff_bicubic_found = False
 
 
+def save_timings(timings, file_path):
+    with open(file_path, 'w') as f:
+        for timing in timings:
+            f.write(f'{timing}\n')
+
+
 def render_set(
         model_path, name, iteration, views, gaussians, pipeline, background, train_test_exp,
         sf: int, upscaling_method: str, upscaling_param: str):
@@ -90,24 +96,41 @@ def render_set(
     if upscaler is not None and not upscaler.get_supports_fractional():
         round_sizes = upscaler.get_ss_factor()
 
+    times_render = []
+    times_render_small = []
+    times_upscale = []
+
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         render_out = render(
-            view, gaussians, pipeline, background, use_trained_exp=train_test_exp, round_sizes=round_sizes)
+            view, gaussians, pipeline, background, use_trained_exp=train_test_exp,
+            round_sizes=round_sizes, measure_time=True)
         rendering = render_out["render"][0:3, :, :]
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
+        times_render.append(render_out["time_render"])
+
         if sf != 1 and upscaler is not None:
             render_out_ss = render(
                 view, gaussians, pipeline, background, use_trained_exp=train_test_exp, upscaler=upscaler,
-                round_sizes=round_sizes)
+                round_sizes=round_sizes, measure_time=True)
             if "render_small" in render_out_ss:
                 rendering_small = render_out_ss["render_small"][0:3, :, :]
                 torchvision.utils.save_image(rendering_small, os.path.join(small_path, '{0:05d}'.format(idx) + ".png"))
             rendering_upscaled = render_out_ss["render"][0:3, :, :]
             torchvision.utils.save_image(rendering_upscaled, os.path.join(upscaled_path, '{0:05d}'.format(idx) + ".png"))
+            times_render_small.append(render_out_ss["time_render"])
+            times_upscale.append(render_out_ss["time_upscale"])
+
         gt = view.original_image[0:3, :, :]
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
         if idx >= 10:
             break
+
+    if len(times_render) > 0:
+        save_timings(times_render, os.path.join(model_path, name, dir_name, 'times_render.txt'))
+    if len(times_render_small) > 0:
+        save_timings(times_render_small, os.path.join(model_path, name, dir_name, 'times_render_small.txt'))
+    if len(times_upscale) > 0:
+        save_timings(times_upscale, os.path.join(model_path, name, dir_name, 'times_upscale.txt'))
 
 
 def render_sets(

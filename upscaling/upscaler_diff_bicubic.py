@@ -13,7 +13,8 @@ class UpscalerDiffBicubic(Upscaler):
             self, render_width, render_height, upscaled_width, upscaled_height,
             rendered_image, depth_image, gradient_image):
         num_channels = gradient_image.shape[0] // 3
-        gradient_image = -gradient_image.reshape((num_channels, 3, gradient_image.shape[1], gradient_image.shape[2]))
+        gradient_image = gradient_image.reshape((num_channels, 3, gradient_image.shape[1], gradient_image.shape[2]))
+        gradient_image[:, 0:2, :, :] = -gradient_image[:, 0:2, :, :]
 
         # For comparing analytic gradients with numerical ones.
         #dy, dx = torch.gradient(rendered_image, dim=[1, 2])
