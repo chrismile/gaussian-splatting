@@ -140,7 +140,10 @@ def main():
     parser.add_argument('--case', default='train')
     args = parser.parse_args()
 
-    base_dir = '/mnt/data/3DGS/train/bonsai_default/train/'
+    if os.path.exists('/mnt/data/3DGS'):
+        base_dir = '/mnt/data/3DGS/train/bonsai_default/train/'
+    elif os.path.exists('/home/neuhauser/datasets/3dgs/nerf/3DGS'):
+        base_dir = '/home/neuhauser/datasets/3dgs/nerf/3DGS/train/bonsai_default/train/'
     if args.dir is not None:
         base_dir = os.path.join(args.dir, args.case)
     base_path = f'ours_{args.iterations}_x{args.sf}_'

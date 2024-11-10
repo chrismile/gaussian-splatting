@@ -22,7 +22,7 @@ import upscaling.upscaler_model
 def render(
         viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, scaling_modifier=1.0,
         override_color=None, use_trained_exp=False, upscaler: Upscaler = None, round_sizes=1,
-        measure_time=False, use_events=False):
+        measure_time=False, use_events=True):
     """
     Render the scene. 
     

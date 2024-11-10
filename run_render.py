@@ -36,6 +36,8 @@ from email.message import EmailMessage
 from email.headerregistry import Address
 from email.utils import formatdate
 
+from numba.cuda.cudadrv.runtime import Runtime
+
 
 def send_mail(
         sender_name, sender_email_address, user_name, password,
@@ -83,8 +85,14 @@ def escape_html(s):
     return s.replace('\n', '<br/>\n')
 
 
-scenes_dir = '/mnt/data/3DGS/360_v2'
-train_dir = '/mnt/data/3DGS/train'
+if os.path.exists('/mnt/data/3DGS'):
+    scenes_dir = '/mnt/data/3DGS/360_v2'
+    train_dir = '/mnt/data/3DGS/train'
+elif os.path.exists('/home/neuhauser/datasets/3dgs/nerf/3DGS'):
+    scenes_dir = '/home/neuhauser/datasets/3dgs/nerf/3DGS/360_v2'
+    train_dir = '/home/neuhauser/datasets/3dgs/nerf/3DGS/train'
+else:
+    raise RuntimeError('Could not auto-detected directories.')
 #scenes = [('bonsai', 'images_2', 'bonsai_default')]
 #scenes = [('bicycle', 'images_4', 'bicycle_default'), ('room', 'images_2', 'room_default')]
 scenes = [
