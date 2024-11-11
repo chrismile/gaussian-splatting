@@ -28,3 +28,6 @@ class Upscaler(abc.ABC):
 
     def get_supports_fractional(self) -> bool:
         return False  # Set to False as a test
+
+    def get_use_gradients(self) -> bool:
+        return False

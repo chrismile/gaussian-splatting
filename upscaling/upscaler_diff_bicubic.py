@@ -28,6 +28,8 @@ class UpscalerDiffBicubic(Upscaler):
             rendered_image, gradient_image, upscaled_width, upscaled_height)
         return upscaled_image
 
-
     def query_render_resolution(self, upscaled_width, upscaled_height):
         return super().query_render_resolution(upscaled_width, upscaled_height)
+
+    def get_use_gradients(self) -> bool:
+        return True

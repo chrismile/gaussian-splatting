@@ -47,8 +47,10 @@ def render(
         full_height = (full_height // round_sizes) * round_sizes
 
     subsampling_factor = 1
+    use_gradients = False
     if upscaler is not None:
         subsampling_factor = upscaler.get_ss_factor()
+        use_gradients = upscaler.get_use_gradients()
     if upscaler is not None:
         render_width, render_height = upscaler.query_render_resolution(
             full_width, full_height)
@@ -70,7 +72,8 @@ def render(
         campos=viewpoint_camera.camera_center,
         prefiltered=False,
         debug=pipe.debug,
-        antialiasing=pipe.antialiasing
+        antialiasing=pipe.antialiasing,
+        use_gradients=use_gradients
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
