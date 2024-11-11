@@ -154,6 +154,8 @@ def main():
         if not test_dir.startswith(base_path):
             continue
         test_name = test_dir[len(base_path):]
+        if 'opencv_EDSR' in test_name:
+            continue
         print(f"Test '{test_name}'...")
         result = {'name': test_name}
         for metric in metrics:
