@@ -96,20 +96,20 @@ else:
 #scenes = [('bonsai', 'images_2', 'bonsai_default')]
 #scenes = [('bicycle', 'images_4', 'bicycle_default'), ('room', 'images_2', 'room_default')]
 scenes = [
-    ('bonsai', 'images_2', 'bonsai_default'),
-    ('bicycle', 'images_4', 'bicycle_default'),
-    ('room', 'images_2', 'room_default'),
+    #('bonsai', 'images_2', 'bonsai_default'),
+    #('bicycle', 'images_4', 'bicycle_default'),
+    #('room', 'images_2', 'room_default'),
     ('garden', 'images_4', 'garden_default'),
 ]
 scale_factors = [2, 3, 4]
 configurations = [
     ('dlss', None),
     ('pytorch', 'bicubic'),
-    ('opencv', 'EDSR'),
-    ('opencv', 'ESPCN'),
-    ('opencv', 'FSRCNN'),
-    ('opencv', 'LapSRN'),
-    ('torchsr', 'EDSR'),
+    #('opencv', 'EDSR'),
+    #('opencv', 'ESPCN'),
+    #('opencv', 'FSRCNN'),
+    #('opencv', 'LapSRN'),
+    #('torchsr', 'EDSR'),
     ('torchsr', 'NinaSR_b0'),
     ('torchsr', 'NinaSR_b1'),
     ('torchsr', 'NinaSR_b2'),
@@ -120,6 +120,8 @@ configurations = [
 
     # ('model', 'espcn_256.pt'),
 ]
+upscale_base_res = True
+
 commands = []
 for scene in scenes:
     model_dir = os.path.join(train_dir, scene[2])
@@ -145,13 +147,16 @@ for scene in scenes:
                 continue
             if configuration[0] == 'dlss' and sf >= 4:
                 continue
+            if upscale_base_res:
+                command.append('--upscale_base_res')
             commands.append(command)
 
-    for sf in scale_factors:
-        command = [
-            'python3', 'eval_upscale.py', '-m', model_dir, '--sf', str(sf),
-        ]
-        commands.append(command)
+    if not upscale_base_res:
+        for sf in scale_factors:
+            command = [
+                'python3', 'eval_upscale.py', '-m', model_dir, '--sf', str(sf),
+            ]
+            commands.append(command)
 
 if __name__ == '__main__':
     shall_send_email = True

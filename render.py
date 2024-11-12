@@ -47,7 +47,7 @@ def save_timings(timings, file_path):
 
 def render_set(
         model_path, name, iteration, views, gaussians, pipeline, background, train_test_exp,
-        sf: int, upscaling_method: str, upscaling_param: str):
+        sf: int, upscaling_method: str, upscaling_param: str, upscale_base_res: bool):
     dir_name = f"ours_{iteration}"
     if sf is not None and sf != 1:
         dir_name += f"_x{sf}"
@@ -105,41 +105,61 @@ def render_set(
     times_upscale = []
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
-        render_out = render(
-            view, gaussians, pipeline, background, use_trained_exp=train_test_exp,
-            round_sizes=round_sizes, measure_time=True)
-        rendering = render_out["render"][0:3, :, :]
-        torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
-        times_render.append(render_out["time_render"])
+        if upscale_base_res:
+            render_out_hires = render(
+                view, gaussians, pipeline, background, use_trained_exp=train_test_exp,
+                round_sizes=round_sizes, measure_time=True, upscale_base_res=upscale_base_res, upscale_default_res=sf)
+            times_render.append(render_out_hires["time_render"])
 
-        if sf != 1 and upscaler is not None:
             render_out_ss = render(
                 view, gaussians, pipeline, background, use_trained_exp=train_test_exp, upscaler=upscaler,
-                round_sizes=round_sizes, measure_time=True)
+                round_sizes=round_sizes, measure_time=True, upscale_base_res=upscale_base_res)
             if "render_small" in render_out_ss:
                 rendering_small = render_out_ss["render_small"][0:3, :, :]
                 torchvision.utils.save_image(rendering_small, os.path.join(small_path, '{0:05d}'.format(idx) + ".png"))
-            rendering_upscaled = render_out_ss["render"][0:3, :, :]
-            torchvision.utils.save_image(rendering_upscaled, os.path.join(upscaled_path, '{0:05d}'.format(idx) + ".png"))
             times_render_small.append(render_out_ss["time_render"])
             times_upscale.append(render_out_ss["time_upscale"])
+        else:
+            render_out = render(
+                view, gaussians, pipeline, background, use_trained_exp=train_test_exp,
+                round_sizes=round_sizes, measure_time=True)
+            rendering = render_out["render"][0:3, :, :]
+            torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
+            times_render.append(render_out["time_render"])
+
+            if sf != 1 and upscaler is not None:
+                render_out_ss = render(
+                    view, gaussians, pipeline, background, use_trained_exp=train_test_exp, upscaler=upscaler,
+                    round_sizes=round_sizes, measure_time=True, upscale_base_res=upscale_base_res)
+                if "render_small" in render_out_ss:
+                    rendering_small = render_out_ss["render_small"][0:3, :, :]
+                    torchvision.utils.save_image(rendering_small, os.path.join(small_path, '{0:05d}'.format(idx) + ".png"))
+                rendering_upscaled = render_out_ss["render"][0:3, :, :]
+                torchvision.utils.save_image(rendering_upscaled, os.path.join(upscaled_path, '{0:05d}'.format(idx) + ".png"))
+                times_render_small.append(render_out_ss["time_render"])
+                times_upscale.append(render_out_ss["time_upscale"])
 
         gt = view.original_image[0:3, :, :]
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
         if idx >= 10:
             break
 
-    if len(times_render) > 0:
-        save_timings(times_render, os.path.join(model_path, name, dir_name, 'times_render.txt'))
-    if len(times_render_small) > 0:
-        save_timings(times_render_small, os.path.join(model_path, name, dir_name, 'times_render_small.txt'))
-    if len(times_upscale) > 0:
-        save_timings(times_upscale, os.path.join(model_path, name, dir_name, 'times_upscale.txt'))
+    if upscale_base_res:
+        save_timings(times_render, os.path.join(model_path, name, dir_name, 'times_hires_render.txt'))
+        save_timings(times_render_small, os.path.join(model_path, name, dir_name, 'times_hires_render_small.txt'))
+        save_timings(times_upscale, os.path.join(model_path, name, dir_name, 'times_hires_upscale.txt'))
+    else:
+        if len(times_render) > 0:
+            save_timings(times_render, os.path.join(model_path, name, dir_name, 'times_render.txt'))
+        if len(times_render_small) > 0:
+            save_timings(times_render_small, os.path.join(model_path, name, dir_name, 'times_render_small.txt'))
+        if len(times_upscale) > 0:
+            save_timings(times_upscale, os.path.join(model_path, name, dir_name, 'times_upscale.txt'))
 
 
 def render_sets(
         dataset: ModelParams, iteration: int, pipeline: PipelineParams, skip_train: bool, skip_test: bool,
-        sf: int, upscaling_method: str, upscaling_param: str):
+        sf: int, upscaling_method: str, upscaling_param: str, upscale_base_res: bool):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
@@ -150,12 +170,12 @@ def render_sets(
         if not skip_train:
              render_set(
                  dataset.model_path, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline,
-                 background, dataset.train_test_exp, sf, upscaling_method, upscaling_param)
+                 background, dataset.train_test_exp, sf, upscaling_method, upscaling_param, upscale_base_res)
 
         if not skip_test:
              render_set(
                  dataset.model_path, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline,
-                 background, dataset.train_test_exp, sf, upscaling_method, upscaling_param)
+                 background, dataset.train_test_exp, sf, upscaling_method, upscaling_param, upscale_base_res)
 
 
 if __name__ == "__main__":
@@ -170,6 +190,7 @@ if __name__ == "__main__":
     parser.add_argument("--sf", default=1, type=int)
     parser.add_argument("--upscaling_method", default=None)
     parser.add_argument("--upscaling_param", default=None)
+    parser.add_argument("--upscale_base_res", action="store_true")
     args = get_combined_args(parser)
     upscaling_method = None
     upscaling_param = None
@@ -184,4 +205,4 @@ if __name__ == "__main__":
 
     render_sets(
         model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test,
-        args.sf, upscaling_method, upscaling_param)
+        args.sf, upscaling_method, upscaling_param, args.upscale_base_res)

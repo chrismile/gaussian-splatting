@@ -22,7 +22,7 @@ import upscaling.upscaler_model
 def render(
         viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tensor, scaling_modifier=1.0,
         override_color=None, use_trained_exp=False, upscaler: Upscaler = None, round_sizes=1,
-        measure_time=False, use_events=True):
+        measure_time=False, use_events=True, upscale_base_res=False, upscale_default_res=1):
     """
     Render the scene. 
     
@@ -42,22 +42,31 @@ def render(
 
     full_width = int(viewpoint_camera.image_width)
     full_height = int(viewpoint_camera.image_height)
-    if round_sizes != 1:
+    if round_sizes != 1 and not upscale_base_res:
         full_width = (full_width // round_sizes) * round_sizes
         full_height = (full_height // round_sizes) * round_sizes
 
-    subsampling_factor = 1
+    subsampling_factor = upscale_default_res
     use_gradients = False
     if upscaler is not None:
         subsampling_factor = upscaler.get_ss_factor()
         use_gradients = upscaler.get_use_gradients()
-    if upscaler is not None:
-        render_width, render_height = upscaler.query_render_resolution(
-            full_width, full_height)
-        subsampling_factor = int(round(full_width / render_width))
+    if upscale_base_res:
+        render_width = full_width
+        render_height = full_height
+        full_width *= subsampling_factor
+        full_height *= subsampling_factor
+        if upscaler is None and upscale_default_res != 1:
+            render_width *= subsampling_factor
+            render_height *= subsampling_factor
     else:
-        render_width = full_width // subsampling_factor
-        render_height = full_height // subsampling_factor
+        if upscaler is not None:
+            render_width, render_height = upscaler.query_render_resolution(
+                full_width, full_height)
+            subsampling_factor = int(round(full_width / render_width))
+        else:
+            render_width = full_width // subsampling_factor
+            render_height = full_height // subsampling_factor
 
     raster_settings = GaussianRasterizationSettings(
         image_height=render_height,

@@ -109,7 +109,7 @@ scenes = [('garden', 'images_4')]
 case = 'train'
 iterations = 30000
 img_idx = '00000'
-scale_factors = [2, 3, 4]
+scale_factors = [3, 4]
 configurations = [
     None,
     #'edsr',
@@ -214,7 +214,7 @@ for scene in scenes:
             if not os.path.exists(image_dir):
                 commands.append(['python3', 'render.py', '-m', model_dir, '--antialiasing'])
 
-        commands.append(lambda: eval_train(f'{scene[0]}_x{sf}', gt_image_dir, image_dirs))
+        #commands.append(lambda: eval_train(f'{scene[0]}_x{sf}', gt_image_dir, image_dirs))
 
 
 if __name__ == '__main__':
