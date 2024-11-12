@@ -95,17 +95,24 @@ def escape_html(s):
     return s.replace('\n', '<br/>\n')
 
 
-scenes_dir = '/mnt/data/3DGS/360_v2'
-train_dir = '/mnt/data/3DGS/train'
+if os.path.exists('/mnt/data/3DGS'):
+    scenes_dir = '/mnt/data/3DGS/360_v2'
+    train_dir = '/mnt/data/3DGS/train'
+elif os.path.exists('/home/neuhauser/datasets/3dgs/nerf/3DGS'):
+    scenes_dir = '/home/neuhauser/datasets/3dgs/nerf/3DGS/360_v2'
+    train_dir = '/home/neuhauser/datasets/3dgs/nerf/3DGS/train'
+else:
+    raise RuntimeError('Could not auto-detected directories.')
 #scenes = [('bonsai', 'images_2')]
-scenes = [('bicycle', 'images_4'), ('room', 'images_2')]
+#scenes = [('bicycle', 'images_4'), ('room', 'images_2')]
+scenes = [('garden', 'images_4')]
 case = 'train'
 iterations = 30000
 img_idx = '00000'
-scale_factors = [2]
+scale_factors = [2, 3, 4]
 configurations = [
-    None,
-    'ninasr_b1',
+    'edsr',
+    #'ninasr_b1',
 ]
 
 
@@ -183,16 +190,15 @@ for scene in scenes:
     for sf in scale_factors:
         image_dirs = []
         for configuration in configurations:
-            config_name = configuration if configuration is not None else 'default'
+            config_name = f'x{sf}_{configuration}' if sf != 1 else 'default'
             model_dir = os.path.join(train_dir, f'{scene[0]}_{config_name}')
             if not os.path.exists(model_dir):
                 command_train = [
                     'python3', 'train.py',
                     '-s', scene_dir, '-m', model_dir, '--images', images_dir, '--antialiasing', '--eval',
-                    '--test_iterations', '7000', '15000', '30000',
-                    '--sf', str(sf)
+                    '--test_iterations', '7000', '15000', '30000'
                 ]
-                if configuration is not None:
+                if sf != 1:
                     command_train += [
                         '--sf', str(sf),
                         '--upscaling_method', 'torchsr',
