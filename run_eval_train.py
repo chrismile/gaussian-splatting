@@ -111,8 +111,9 @@ iterations = 30000
 img_idx = '00000'
 scale_factors = [2, 3, 4]
 configurations = [
-    'edsr',
-    #'ninasr_b1',
+    None,
+    #'edsr',
+    'ninasr_b1',
 ]
 
 
@@ -190,7 +191,7 @@ for scene in scenes:
     for sf in scale_factors:
         image_dirs = []
         for configuration in configurations:
-            config_name = f'x{sf}_{configuration}' if sf != 1 else 'default'
+            config_name = f'x{sf}_{configuration}' if configuration is not None else f'ds{sf}'
             model_dir = os.path.join(train_dir, f'{scene[0]}_{config_name}')
             if not os.path.exists(model_dir):
                 command_train = [
@@ -198,7 +199,7 @@ for scene in scenes:
                     '-s', scene_dir, '-m', model_dir, '--images', images_dir, '--antialiasing', '--eval',
                     '--test_iterations', '7000', '15000', '30000'
                 ]
-                if sf != 1:
+                if configuration is not None:
                     command_train += [
                         '--sf', str(sf),
                         '--upscaling_method', 'torchsr',
