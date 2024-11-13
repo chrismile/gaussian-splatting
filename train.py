@@ -315,6 +315,8 @@ if __name__ == "__main__":
         args.sf, upscaling_method, upscaling_param, args.downscale)
     train_time_end = time.time()
     print(f'Elapsed time: {train_time_end - train_time_start}s')
+    with open(os.path.join(args.model_path, 'train_time.txt'), 'w') as file:
+        file.write(f'{train_time_end - train_time_start}')
 
     # All done
     print("\nTraining complete.")

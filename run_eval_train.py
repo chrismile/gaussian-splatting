@@ -109,9 +109,9 @@ scenes = [('garden', 'images_4')]
 case = 'train'
 iterations = 30000
 img_idx = '00000'
-scale_factors = [3, 4]
+scale_factors = [2, 3, 4]
 configurations = [
-    None,
+    #None,
     #'edsr',
     'ninasr_b1',
 ]
