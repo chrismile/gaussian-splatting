@@ -10,6 +10,7 @@
 #
 
 import os
+import time
 import torch
 import torchvision
 from random import randint
@@ -307,10 +308,13 @@ if __name__ == "__main__":
     if not args.disable_viewer:
         network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
+    train_time_start = time.time()
     training(
         lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations,
         args.checkpoint_iterations, args.start_checkpoint, args.debug_from,
         args.sf, upscaling_method, upscaling_param, args.downscale)
+    train_time_end = time.time()
+    print(f'Elapsed time: {train_time_end - train_time_start}s')
 
     # All done
     print("\nTraining complete.")
