@@ -105,7 +105,8 @@ else:
     raise RuntimeError('Could not auto-detected directories.')
 #scenes = [('bonsai', 'images_2')]
 #scenes = [('bicycle', 'images_4'), ('room', 'images_2')]
-scenes = [('garden', 'images_4')]
+#scenes = [('garden', 'images_4')]
+scenes = [('garden', 'images_2')]
 case = 'train'
 iterations = 30000
 img_idx = '00000'
