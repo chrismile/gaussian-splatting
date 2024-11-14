@@ -60,8 +60,8 @@ def skimage_to_torch(img):
 def compare_images(tensor_gt, tensor_approx):
     tensor_gt = torch.clip(tensor_gt, 0.0, 1.0)
     tensor_approx = torch.clip(tensor_approx, 0.0, 1.0)
-    #torchvision.utils.save_image(tensor_gt, os.path.join('test_gt.png'))
-    #torchvision.utils.save_image(tensor_approx, os.path.join('test_approx.png'))
+    torchvision.utils.save_image(tensor_gt, os.path.join('test_gt.png'))
+    torchvision.utils.save_image(tensor_approx, os.path.join('test_approx.png'))
 
     img_gt = tensor_gt.cpu().numpy().transpose((1, 2, 0))
     img_approx = tensor_approx.cpu().numpy().transpose((1, 2, 0))
@@ -113,8 +113,10 @@ def main():
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
     gaussians = GaussianModel(dataset.sh_degree)
     scene = Scene(dataset, gaussians, load_iteration=args.iteration, shuffle=False)
-    views = scene.getTrainCameras()
-    num_images = 10
+    views = scene.getTestCameras()
+    #views = scene.getTrainCameras()
+    #num_images = 10
+    num_images = len(views)
     for idx, view in enumerate(views):
         gt = view.original_image[0:3, :, :]
         render_out = render(
@@ -124,8 +126,8 @@ def main():
         for metric in metrics:
             result[metric] += result_frame[metric] / num_images
 
-        if idx >= num_images:
-            break
+        #if idx >= num_images:
+        #    break
 
     print(result)
     #plot_results(base_dir, args.sf, results)
