@@ -108,6 +108,11 @@ def main():
     for metric in metrics:
         result[metric] = 0.0
 
+    timings_file_path = os.path.join(args.model_path, 'train_time.txt')
+    if os.path.exists(timings_file_path):
+        with open(timings_file_path) as timings_file:
+            print(f'{float(timings_file.read())}s')
+
     dataset = model.extract(args)
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
